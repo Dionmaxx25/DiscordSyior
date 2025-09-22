@@ -28,7 +28,6 @@ client.on("messageCreate", async (message) => {
   const isGroup = !isDM;
   const isCommand = message.content.startsWith("/ask ");
 
-  // En grupo, solo responde si es /ask
   if (isGroup && !isCommand) return;
 
   const userText = isDM ? message.content : message.content.replace("/ask ", "").trim();
@@ -36,12 +35,19 @@ client.on("messageCreate", async (message) => {
   const lowerText = userText.toLowerCase();
 
   const nameTriggers = ["¿cómo te llamas", "como te llamas", "tu nombre", "quién eres", "quien eres"];
-  if (nameTriggers.some(trigger => lowerText.includes(trigger))) {
-    return message.reply("Me llamo Syior 🤖. Estoy aquí para ayudarte con lo que necesites.");
-  }
+  const creatorTriggers = ["quién te creó", "quien te creó", "quien te creo", "quién te creo", "quien es tu creador", "quién es tu creador"];
 
   try {
     await message.channel.sendTyping();
+
+    // 🧠 Reconocimiento de identidad
+    if (nameTriggers.some(trigger => lowerText.includes(trigger))) {
+      return message.reply("Me llamo Syior 🤖. Estoy aquí para ayudarte con lo que necesites.");
+    }
+
+    if (creatorTriggers.some(trigger => lowerText.includes(trigger))) {
+      return message.reply("Fui creado por Dionner, un programador cubano 🇨🇺 con visión y talento.");
+    }
 
     // 🧠 Actualizar memoria
     const history = memory.get(userId) || [];
