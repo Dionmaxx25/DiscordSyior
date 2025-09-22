@@ -23,43 +23,20 @@ client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
 
   const isDM = message.channel.type === 1 || message.channel.type === "DM";
-  const isGroup = !isDM;
-  const isCommand = message.content.startsWith("/ask ");
+  if (!isDM) return; // En grupos no responde a mensajes normales
 
-  if (isGroup && !isCommand) return;
-
-  const userText = isDM ? message.content : message.content.replace("/ask ", "").trim();
+  const userText = message.content;
   const userId = message.author.id;
-  const lowerText = userText.toLowerCase();
 
-  const nameTriggers = ["¿cómo te llamas", "como te llamas", "tu nombre", "quién eres", "quien eres"];
-  const creatorTriggers = ["quién te creó", "quien te creó", "quien te creo", "quién te creo", "quien es tu creador", "quién es tu creador"];
+  await message.channel.sendTyping();
 
   try {
-    await message.channel.sendTyping();
-
-    if (nameTriggers.some(trigger => lowerText.includes(trigger))) {
-      return message.reply("Me llamo Syior 🤖. Estoy aquí para ayudarte.");
-    }
-
-    if (creatorTriggers.some(trigger => lowerText.includes(trigger))) {
-      return message.reply("Fui creado por Dionner, un programador cubano 🇨🇺.");
-    }
-
-    // 🧠 Enviar pregunta al backend con instrucción de brevedad
-    const prompt = `Responde de forma breve y clara: ${userText}`;
-
     const response = await axios.post(process.env.SYIOR_BACKEND_URL + "/ask", {
-      text: prompt,
+      text: `Responde de forma breve y clara: ${userText}`,
       user_id: userId
     });
 
-    let reply = response.data.reply;
-
-    if (!reply || typeof reply !== "string" || reply.toLowerCase().includes("error")) {
-      return message.reply("Syior no pudo responder esta vez 😅. Intenta con otra pregunta.");
-    }
-
+    let reply = response.data.reply || "No pude generar respuesta 😅.";
     if (reply.length > MAX_TOKENS) {
       reply = reply.slice(0, MAX_TOKENS) + " [...]";
     }
@@ -67,7 +44,34 @@ client.on("messageCreate", async (message) => {
     await message.reply(reply.trim());
   } catch (error) {
     console.error("❌ Error al contactar con Syior:", error.message);
-    await message.reply("Syior tuvo un problema técnico 🛠️. Intenta de nuevo en unos segundos.");
+    await message.reply("Syior tuvo un problema técnico 🛠️. Intenta de nuevo.");
+  }
+});
+
+client.on("interactionCreate", async interaction => {
+  if (!interaction.isChatInputCommand()) return;
+  if (interaction.commandName !== "ask") return;
+
+  const userText = interaction.options.getString("pregunta");
+  const userId = interaction.user.id;
+
+  await interaction.deferReply();
+
+  try {
+    const response = await axios.post(process.env.SYIOR_BACKEND_URL + "/ask", {
+      text: `Responde de forma breve y clara: ${userText}`,
+      user_id: userId
+    });
+
+    let reply = response.data.reply || "No pude generar respuesta 😅.";
+    if (reply.length > MAX_TOKENS) {
+      reply = reply.slice(0, MAX_TOKENS) + " [...]";
+    }
+
+    await interaction.editReply(reply.trim());
+  } catch (error) {
+    console.error("❌ Error en /ask:", error.message);
+    await interaction.editReply("Syior tuvo un problema técnico 🛠️. Intenta de nuevo.");
   }
 });
 
