@@ -1,5 +1,5 @@
 require("dotenv").config();
-const { Client, GatewayIntentBits } = require("discord.js");
+const { Client, GatewayIntentBits, Partials } = require("discord.js");
 const axios = require("axios");
 const http = require("http");
 
@@ -14,7 +14,7 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.DirectMessages
   ],
-  partials: ["CHANNEL"]
+  partials: [Partials.Channel] // ✅ Necesario para recibir DMs
 });
 
 client.once("ready", () => {
@@ -24,10 +24,11 @@ client.once("ready", () => {
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
 
-  const isDM = message.channel.type === 1;
+  const isDM = message.channel.type === 1 || message.channel.type === "DM"; // ✅ Detecta DMs correctamente
   const isGroup = !isDM;
   const isCommand = message.content.startsWith("/ask ");
 
+  // En grupo, solo responde si es /ask
   if (isGroup && !isCommand) return;
 
   const userText = isDM ? message.content : message.content.replace("/ask ", "").trim();
@@ -74,7 +75,7 @@ client.on("messageCreate", async (message) => {
     await message.reply(charismaticReply);
   } catch (error) {
     console.error("❌ Error al contactar con Syior:", error.message);
-    await message.reply("Syior está desconectado temporalmente 💤.");
+    await message.reply("Syior tuvo un problema técnico 🛠️. Intenta de nuevo en unos segundos.");
   }
 });
 
@@ -92,7 +93,7 @@ function addCharisma(text) {
   return `${text} ${emoji} ${ending}`;
 }
 
-// 🌐 Servidor HTTP para Render
+// 🌐 Servidor HTTP para Render y UptimeRobot
 http.createServer((_, res) => {
   res.writeHead(200, { "Content-Type": "text/plain" });
   res.end("Syior está activo 🚀");
