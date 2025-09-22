@@ -4,8 +4,6 @@ const axios = require("axios");
 const http = require("http");
 
 const MAX_TOKENS = 250000;
-const MEMORY_LIMIT = 5;
-const memory = new Map(); // 🧠 Memoria por usuario
 
 const client = new Client({
   intents: [
@@ -14,7 +12,7 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.DirectMessages
   ],
-  partials: [Partials.Channel] // ✅ Necesario para recibir DMs
+  partials: [Partials.Channel]
 });
 
 client.once("ready", () => {
@@ -24,11 +22,10 @@ client.once("ready", () => {
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
 
-  const isDM = message.channel.type === 1 || message.channel.type === "DM"; // ✅ Detecta DMs correctamente
+  const isDM = message.channel.type === 1 || message.channel.type === "DM";
   const isGroup = !isDM;
   const isCommand = message.content.startsWith("/ask ");
 
-  // En grupo, solo responde si es /ask
   if (isGroup && !isCommand) return;
 
   const userText = isDM ? message.content : message.content.replace("/ask ", "").trim();
@@ -41,57 +38,38 @@ client.on("messageCreate", async (message) => {
   try {
     await message.channel.sendTyping();
 
-    // 🧠 Reconocimiento de identidad
     if (nameTriggers.some(trigger => lowerText.includes(trigger))) {
-      return message.reply("Me llamo Syior 🤖. Estoy aquí para ayudarte con lo que necesites.");
+      return message.reply("Me llamo Syior 🤖. Estoy aquí para ayudarte.");
     }
 
     if (creatorTriggers.some(trigger => lowerText.includes(trigger))) {
-      return message.reply("Fui creado por Dionner, un programador cubano 🇨🇺 con visión y talento.");
+      return message.reply("Fui creado por Dionner, un programador cubano 🇨🇺.");
     }
 
-    // 🧠 Actualizar memoria
-    const history = memory.get(userId) || [];
-    history.push(userText);
-    if (history.length > MEMORY_LIMIT) history.shift();
-    memory.set(userId, history);
-
-    // 🧠 Construir contexto
-    const context = history.join("\n");
+    // 🧠 Enviar pregunta al backend con instrucción de brevedad
+    const prompt = `Responde de forma breve y clara: ${userText}`;
 
     const response = await axios.post(process.env.SYIOR_BACKEND_URL + "/ask", {
-      text: context,
+      text: prompt,
       user_id: userId
     });
 
-    let reply = response.data.reply || "Hmm... no tengo respuesta para eso 😅.";
+    let reply = response.data.reply;
 
-    // 📏 Control de longitud
+    if (!reply || typeof reply !== "string" || reply.toLowerCase().includes("error")) {
+      return message.reply("Syior no pudo responder esta vez 😅. Intenta con otra pregunta.");
+    }
+
     if (reply.length > MAX_TOKENS) {
       reply = reply.slice(0, MAX_TOKENS) + " [...]";
     }
 
-    const charismaticReply = addCharisma(reply);
-    await message.reply(charismaticReply);
+    await message.reply(reply.trim());
   } catch (error) {
     console.error("❌ Error al contactar con Syior:", error.message);
     await message.reply("Syior tuvo un problema técnico 🛠️. Intenta de nuevo en unos segundos.");
   }
 });
-
-function addCharisma(text) {
-  const emojis = ["✨", "💡", "😄", "🤖", "🧠", "🚀", "😉"];
-  const endings = [
-    "¿Te gustaría saber más?",
-    "¡Estoy aquí si necesitas otra cosa!",
-    "¿Quieres que lo simplifique?",
-    "¡Pregúntame lo que quieras!",
-    "¡Vamos por más!"
-  ];
-  const emoji = emojis[Math.floor(Math.random() * emojis.length)];
-  const ending = endings[Math.floor(Math.random() * endings.length)];
-  return `${text} ${emoji} ${ending}`;
-}
 
 // 🌐 Servidor HTTP para Render y UptimeRobot
 http.createServer((_, res) => {
